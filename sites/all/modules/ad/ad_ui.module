@@ -1,0 +1,220 @@
+<?php
+// $Id $
+
+/**
+ * Implements hook_menu().
+ */
+function ad_ui_menu() {
+  $items = array();
+
+  // TODO: ??
+  // Note: admin/commerce/products will be created by Views.
+
+  $items['admin/ad'] = array(
+    'title' => 'Advertisements',
+    'description' => 'Add a new advertisement.',
+    'page callback' => 'ad_ui_add_page',
+    'access callback' => 'ad_ui_add_any_access',
+    'file' => 'includes/ad_ui.inc',
+  );
+  // Add an ad.
+  $items['admin/ad/add'] = array(
+    'title' => 'Add an advertisement',
+    'description' => 'Add a new advertisement.',
+    'page callback' => 'ad_ui_add_page',
+    'access callback' => 'ad_ui_add_any_access',
+    'file' => 'includes/ad_ui.inc',
+  );
+/*
+ * TODO: Get ad_create() working.
+  foreach (ad_types() as $type => $ad_type) {
+    $items['admin/ad/add/' . $type] = array(
+      'title' => $ad_type->name,
+      'title callback' => 'check_plain',
+      'description' => $ad_type->description,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ad_ui_form', ad_create($type)),
+      'access callback' => 'ad_access',
+      'access arguments' => array('create', $type),
+      'file' => 'includes/ad_ui.inc',
+    );
+  }
+*/
+
+  $items['admin/ad/%ad_type/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ad_ui_form', 3),
+    'access callback' => 'ad_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file' => 'includes/ad_ui.inc',
+  );
+  $items['admin/ad/%ad_type/delete'] = array(
+    'title' => 'Delete an advertisement',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ad_ui_delete_form', 3),
+    'access callback' => 'ad_access',
+    'access arguments' => array('update', 3),
+    'file' => 'includes/ad_ui.inc',
+  );
+
+  $items['admin/ad/types'] = array(
+    'title' => 'Advertisement types',
+    'description' => 'Manage advertisement types.',
+    'page callback' => 'ad_ui_types_overview',
+    'access arguments' => array('administer advertisements'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+    'file' => 'includes/ad_ui.types.inc',
+  );
+  $items['admin/ad/types/add'] = array(
+    'title' => 'Add advertisement type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ad_ui_type_form', ad_type_new()),
+    'access arguments' => array('administer ad types'),
+    'type' => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'file' => 'includes/ad_ui.types.inc',
+  );
+  $items['admin/ad/types/%ad_type'] = array(
+    'title callback' => 'ad_type_title',
+    'title arguments' => array(4),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ad_ui_type_form', 4),
+    'access arguments' => array('administer ad types'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/ad_ui.types.inc',
+  );
+  $items['admin/ad/types/%ad_type/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+  $items['admin/ad/types/%ad_type/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ad_ui_type_delete_form', 4),
+    'access arguments' => array('administer ad types'),
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
+    'weight' => 10,
+    'file' => 'includes/ad_ui.types.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback: determine if the user can create any type of ad.
+ */
+function ad_ui_add_any_access() {
+  // Grant automatic access to users with administer advertisement types access.
+  if (user_access('administer advertisement types')) {
+    return TRUE;
+  }
+
+  // Check the user's access on an ad type basis.
+  foreach (ad_types() as $type => $ad_type) {
+    if (ad_ui_add_access($type)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function ad_ui_menu_alter(&$items) {
+  // Transform the field UI tabs into contextual links.
+  $items['admin/ad/types/%ad_type/fields']['context'] = MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE;
+  $items['admin/ad/types/%ad_type/display']['context'] = MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE;
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function ad_ui_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  // Add action link to 'admin/ad/add' on 'admin/ad' page.
+  if ($root_path == 'admin/ad') {
+    $item = menu_get_item('admin/ad/add');
+    if ($item['access']) {
+      $item['title'] = t('Add an advertisement');
+      $data['actions']['output'][] = array(
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_admin_paths().
+ */
+function ad_ui_admin_paths() {
+  $paths = array(
+    'admin/ad' => TRUE,
+    'admin/ad/add' => TRUE,
+    'admin/ad/add/*' => TRUE,
+    'admin/ad/*/edit' => TRUE,
+    'admin/ad/*/delete' => TRUE,
+    'admin/ad/types' => TRUE,
+    'admin/ad/types/add' => TRUE,
+    'admin/ad/types/*' => TRUE,
+    'admin/ad/types/*/edit' => TRUE,
+    'admin/ad/types/*/delete' => TRUE,
+  );
+
+  return $paths;
+}
+
+/**
+ * Implements hook_help().
+ */
+function ad_ui_help($path, $arg) {
+  switch ($path) {
+    case 'admin/ad/types/add':
+      return '<p>' . t('Individual ad types can have different fields assigned to them.') . '</p>';
+  }
+
+  // Return the user defined help text per ad type when adding ads.
+  if ($arg[1] == 'ad' && $arg[2] == 'add' && $arg[3]) {
+    $ad_type = ad_type_load(str_replace('-', '_', $arg[3]));
+    return (!empty($ad_type->help) ? '<p>' . filter_xss_admin($ad_type->help) . '</p>' : '');
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function ad_ui_theme() {
+  return array(
+    'ad_add_list' => array(
+      'variables' => array('content' => array()),
+      'file' => 'includes/ad_ui.inc',
+    ),
+    'ad_type_admin_overview' => array(
+      'variables' => array('type' => NULL),
+      'file' => 'includes/ad_ui.types.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Expose the admin UI for ad fields.
+ */
+function ad_ui_entity_info_alter(&$entity_info) {
+  foreach ($entity_info['ad']['bundles'] as $type => &$bundle) {
+    $bundle['admin'] = array(
+      'path' => 'admin/ad/types/%ad_type',
+      'real path' => 'admin/ad/types/' . $type,
+      'bundle argument' => 4,
+      'access arguments' => array('administer advertisement types'),
+    );
+  }
+}
+

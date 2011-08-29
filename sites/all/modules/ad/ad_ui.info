@@ -1,0 +1,21 @@
+name = Ad UI
+description = Exposes a default UI for Advertisements through edit forms and default Views.
+package = Advertisement
+core = 7.x
+dependencies[] = contextual
+dependencies[] = field_ui
+dependencies[] = ad
+
+; Base module files
+files[] = ad_ui.module
+
+; Module includes
+files[] = includes/ad_ui.inc
+files[] = includes/ad_ui.types.inc
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "ad"
+datestamp = "1298618795"
+

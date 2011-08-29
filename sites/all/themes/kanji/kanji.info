@@ -1,0 +1,44 @@
+name = Kanji
+description = Theme with fixed size, multiple columns and regions.
+core = 7.x
+engine = phptemplate
+stylesheets[all][] = style.css
+stylesheets[all][] = local.css
+stylesheets[print][] = print.css
+stylesheets[all][] = sf/css/superfish.css
+stylesheets[all][] = sf/css/theme.css
+scripts[] = sf/js/superfish.js
+
+regions[highlighted] = Highlighted
+regions[search_box] = Search box
+regions[sidebar_first] = sidebar first
+regions[sidebar_second] = sidebar second
+regions[header_top] = header top
+regions[header] = header
+regions[preface_top] = preface top
+regions[content_top] = content top
+regions[content] = content
+regions[content_bottom] = content bottom
+regions[postscript_bottom] = postscript bottom
+regions[footer_message] = Footer message
+regions[footer_bottom] = footer bottom
+; Information added by drupal.org packaging script on 2010-12-19
+version = "7.x-1.1-beta1"
+core = "7.x"
+project = "kanji"
+datestamp = "1292758543"
+
+
+; Information added by drupal.org packaging script on 2011-05-17
+version = "7.x-1.4"
+core = "7.x"
+project = "kanji"
+datestamp = "1305652915"
+
+
+; Information added by drupal.org packaging script on 2011-07-23
+version = "7.x-1.6"
+core = "7.x"
+project = "kanji"
+datestamp = "1311403016"
+

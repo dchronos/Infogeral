@@ -1,0 +1,118 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function ad_install() {
+  // Create the basic ad type.
+  $ad_type = ad_type_new();
+
+  $ad_type->type = 'advertisement';
+  $ad_type->name = t('Advertisement');
+  $ad_type->description = t('A basic ad type with no additional fields by default.');
+  $ad_type->is_new = TRUE;
+
+  ad_type_save($ad_type);
+}
+
+/**
+ * Implements hook_schema().
+ */
+function ad_schema() {
+  $schema = array();
+
+  $schema['ad'] = array(
+    'description' => 'The base table for ads.',
+    'fields' => array(
+      'aid' => array(
+        'description' => 'The primary identifier for an advertisement, used internally only.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'description' => 'The {ad_type}.type of this advertisement.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'title' => array(
+        'description' => 'The title of this advertisement, always treated as non-markup plain text.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid that created this advertisement.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'status' => array(
+        'description' => 'Workflow status of advertisement.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the advertisement was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the advertisement was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+    ),
+    'primary key' => array('aid'),
+    'indexes' => array(
+      'type' => array('type'),
+    ),
+    'foreign keys' => array(
+      'uid' => array('users' => 'uid'),
+    ),
+
+  );
+
+  $schema['ad_type'] = array(
+    'description' => 'Stores information about all defined {ad} types.',
+    'fields' => array(
+      'type' => array(
+        'description' => 'The machine-readable name of this type.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'name' => array(
+        'description' => 'The human-readable name of this type.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => 'A brief description of this type.',
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'medium',
+      ),
+      'help' => array(
+        'description' => 'Help information shown to the user when creating an {ad} of this type.',
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'medium',
+      ),
+    ),
+    'primary key' => array('type'),
+  );
+
+  return $schema;
+}

@@ -1,0 +1,418 @@
+<?php
+
+/**
+ * @file
+ * Defines the core ad entity, including the entity itself, the bundle
+ * definitions (ad types), and various API functions to manage ads and interact
+ * with them through forms and autocompletes.
+ */
+
+/**
+ * Implements hook_entity_info().
+ */
+function ad_entity_info() {
+  $return = array(
+    'advertisement' => array(
+      'label' => t('Advertisement'),
+      'controller class' => 'AdvertisementEntityController',
+      'base table' => 'ad',
+      'fieldable' => TRUE,
+      'object keys' => array(
+        'id' => 'aid',
+        'bundle' => 'type',
+      ),
+      'bundle keys' => array(
+        'bundle' => 'type',
+      ),
+      'bundles' => array(),
+      'load hook' => 'ad_load',
+      'view modes' => array(
+        'full' => array(
+          'label' => t('Full'),
+        ),
+        'display' => array(
+          'label' => t('Display'),
+        ),
+      ),
+      'creation callback' => '_ad_create',
+      'save callback' => 'ad_save',
+      'deletion callback' => 'ad_delete',
+      'access callback' => 'ad_access',
+    ),
+  );
+
+  foreach (ad_type_get_name() as $type => $name) {
+    $return['ad']['bundles'][$type] = array(
+      'label' => $name,
+    );
+  }
+
+  return $return;
+}
+
+/**
+ * Implements hook_field_extra_fields().
+ */
+function ad_field_extra_fields() {
+  $extra = array();
+
+  foreach (ad_types() as $type => $ad_type) {
+    $extra['ad'][$type] = array(
+      'title' => array(
+        'label' => 'Title',
+        'description' => t('Ad module title form element'),
+        'weight' => -5,
+      ),
+      'status' => array(
+        'label' => 'Status',
+        'description' => t('Ad module status form element'),
+        'weight' => 35,
+      ),
+    );
+  }
+
+  return $extra;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function ad_permission() {
+  $permissions = array(
+    'administer advertisements' => array(
+      'title' => t('Administer advertisements'),
+    ),
+    'administer advertisement types' => array(
+      'title' => t('Administer advertisement types'),
+    ),
+    'access advertisements' => array(
+      'title' => t('Access advertisements'),
+    ),
+    'create advertisements' => array(
+      'title' => t('Create advertisements'),
+    ),
+  );
+
+  // Add ad type specific permissions. Note that users with administer
+  // advertisements permission should have access to do anything the
+  // permissions below grant a user to do.
+  foreach (ad_type_get_name() as $type => $name) {
+    $permissions['create ' . $type] = array(
+      'title' => t('Create %type advertisements', array('%type' => $name)),
+    );
+    $permissions['edit any ' . $type] = array(
+      'title' => t('Edit or delete any %type advertisements', array('%type' => $name)),
+    );
+    $permissions['edit own ' . $type] = array(
+      'title' => t('Edit or delete own %type advertisements', array('%type' => $name)),
+    );
+  }
+
+  return $permissions;
+}
+
+/**
+ * Returns an initialized ad type object.
+ */
+function ad_type_new() {
+  return (object) array(
+    'type' => '',
+    'name' => '',
+    'description' => '',
+    'help' => '',
+  );
+}
+
+/**
+ * Saves an ad type.
+ *
+ * This function will either insert a new ad type if $ad_type->is_new is set or
+ * attempt to update an existing ad type if it is not. It does not currently
+ * support changing the machine-readable name of the ad type, nor is this
+ * possible through the form supplied by the Ad UI module.
+ *
+ * @param $ad_type
+ *   The ad type object containing the basic properties as initialized in
+ *     ad_type_new().
+ * @return
+ *   The return value of the call to drupal_write_record() to save the ad type,
+ *   either FALSE on failure or SAVED_NEW or SAVED_UPDATED indicating the type
+ *   of query performed to save the ad type.
+ */
+function ad_type_save($ad_type) {
+  $op = drupal_write_record('ad_type', $ad_type, empty($ad_type->is_new) ? 'type' : NULL);
+  menu_rebuild();
+
+  // If this is a new ad type and the insert did not fail...
+  if (!empty($ad_type->is_new) && $op !== FALSE) {
+    // Notify the field API that a new bundle has been created.
+    field_attach_create_bundle('ad', $ad_type->type);
+
+    // Notify other modules that a new ad type has been created.
+    module_invoke_all('ad_type_insert', $ad_type);
+  }
+  else {
+    // Notify other modules that an existing ad type has been updated.
+    module_invoke_all('ad_type_update', $ad_type);
+  }
+
+  return $op;
+}
+
+/**
+ * Loads an ad type.
+ *
+ * @param $type
+ *   The machine-readable name of the ad type.
+ */
+function ad_type_load($type) {
+  return db_query('SELECT * FROM {ad_type} WHERE type = :type', array(':type' => $type))->fetchObject();
+}
+
+/**
+ * Deletes an ad type.
+ *
+ * @param $type
+ *   The machine-readable name of the ad type.
+ */
+function ad_type_delete($type) {
+  $ad_type = ad_type_load($type);
+
+  db_delete('ad_type')
+    ->condition('type', $type)
+    ->execute();
+
+  // Notify the field API that this bundle has been destroyed.
+  field_attach_delete_bundle('ad', $type);
+
+  // Notify other modules that this ad type has been deleted.
+  module_invoke_all('ad_type_delete', $ad_type);
+}
+
+/**
+ * Returns the human readable name of any or all ad types.
+ *
+ * @param $type
+ *   Optional parameter specifying the type whose name to return.
+ * @return
+ *   Either an array of all ad type names keyed by the machine name or a
+ *     string containing the human readable name for the specified type. If a
+ *     type is specified that does not exist, this function returns FALSE.
+ */
+function ad_type_get_name($type = NULL) {
+  $ad_types = ad_types();
+
+  // Return a type name if specified and it exists.
+  if (!empty($type)) {
+    if (isset($ad_types[$type])) {
+      return $ad_types[$type]->name;
+    }
+    else {
+      // Return FALSE if it does not exist.
+      return FALSE;
+    }
+  }
+
+  // Otherwise turn the array values into the type name only.
+  foreach ($ad_types as $key => $value) {
+    $ad_types[$key] = $value->name;
+  }
+
+  return $ad_types;
+}
+
+/**
+ * Returns an array of ad type objects keyed by type.
+ */
+function ad_types() {
+  // First check the static cache for an ad types array.
+  $ad_types = &drupal_static(__FUNCTION__);
+
+  // If it did not exist, fetch the types now.
+  if (!isset($ad_types)) {
+    $ad_types = db_query('SELECT * FROM {ad_type}')->fetchAllAssoc('type');
+  }
+
+  return $ad_types;
+}
+
+/**
+ * Resets the cached list of ad types.
+ */
+function ad_types_reset() {
+  $ad_types = &drupal_static('ad_types');
+  $ad_types = NULL;
+}
+
+/**
+ * Title callback: return the human-readable ad type name.
+ */
+function ad_type_title($ad_type) {
+  return $ad_type->name;
+}
+
+/**
+ * Returns a path argument from a ad type.
+ */
+function ad_type_to_arg($type) {
+  return $type;
+}
+
+/**
+ * Returns an initialized ad object.
+ *
+ * @param $type
+ *   The machine-readable type of the ad.
+ * @return
+ *   An ad object with all default fields initialized.
+ */
+function ad_create($type) {
+  return entity_get_controller('ad')->create($type);
+}
+
+/**
+ * Creation callback for the Entity Metadata module.
+ */
+function _ad_create($values = array()) {
+  // Create a new ad of the specified type.
+  $ad = ad_create($values['type']);
+  unset($values['type']);
+
+  $wrapper = entity_metadata_wrapper('ad', $ad);
+
+  foreach ($values as $name => $value) {
+    $wrapper->$name->set($value);
+  }
+
+  return $wrapper;
+}
+
+/**
+ * Saves an ad.
+ *
+ * @param $ad
+ *   The full ad object to save.
+ * @return
+ *   TRUE on success, FALSE otherwise.
+ */
+function ad_save($ad) {
+  return entity_get_controller('ad')->save($ad);
+}
+
+/**
+ * Loads an ad by ID.
+ */
+function ad_load($aid) {
+  $ads = ad_load_multiple(array($aid), array());
+  return $ads ? reset($ads) : FALSE;
+}
+
+/**
+ * Loads multiple ads by ID or based on a set of matching conditions.
+ *
+ * @see entity_load()
+ *
+ * @param $aids
+ *   An array of ad IDs.
+ * @param $conditions
+ *   An array of conditions on the {ad} table in the form
+ *     'field' => $value.
+ * @param $reset
+ *   Whether to reset the internal ad loading cache.
+ *
+ * @return
+ *   An array of ad objects indexed by aids.
+ */
+function ad_load_multiple($aids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('ad', $aids, $conditions, $reset);
+}
+
+/**
+ * Deletes an ad by ID.
+ *
+ * @param $aid
+ *   The ID of the ad to delete.
+ * @return
+ *   TRUE on success, FALSE otherwise.
+ */
+function ad_delete($aid) {
+  return ad_delete_multiple(array($aid));
+}
+
+/**
+ * Deletes multiple ads by ID.
+ *
+ * @param $aids
+ *   An array of ad IDs to delete.
+ * @return
+ *   TRUE on success, FALSE otherwise.
+ */
+function ad_delete_multiple($aids) {
+  return entity_get_controller('ad')->delete($aids);
+}
+
+/**
+ * Checks ad access for various operations.
+ *
+ * @param $op
+ *   The operation being performed. One of 'view', 'update', 'create' or
+ *   'delete'.
+ * @param $ad
+ *   Optionally an ad to check access for or for the create operation the
+ *   ad type. If nothing is given access permissions for all ads are returned.
+ * @param $account
+ *   The user to check for. Leave it to NULL to check for the current user.
+ */
+function ad_access($op, $ad = NULL, $account = NULL) {
+  global $user;
+  $account = isset($account) ? $account : $user;
+
+  if (user_access('administer ads', $account)) {
+    return TRUE;
+  }
+
+  if ($op == 'view' && user_access('access ads', $account)) {
+    return TRUE;
+  }
+
+  if (isset($ad) && is_string($ad) && $op == 'create' && user_access('create ' . $ad, $account)) {
+    return TRUE;
+  }
+
+  if (isset($ad) && ($op == 'update' || $op == 'delete')) {
+    if (user_access('edit any ' . $ad->type, $account)) {
+      return TRUE;
+    }
+
+    // Others either don't have any access or must match the ad uid.
+    if ($account->uid && user_access('edit own ' . $ad->type, $account) && $ad->uid == $account->uid) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Callback for getting ad properties.
+ * @see ad_entity_property_info()
+ */
+function ad_get_properties($ad, array $options, $name) {
+  switch ($name) {
+    case 'creator':
+      return $ad->uid;
+    case 'edit-url':
+      return url('admin/ad/types/' . $ad->aid . '/edit', $options);
+  }
+}
+
+/**
+ * Callback for setting ad properties.
+ * @see ad_entity_property_info()
+ */
+function ad_set_properties($ad, $name, $value) {
+  if ($name == 'creator') {
+    $ad->uid = $value;
+  }
+}
+
