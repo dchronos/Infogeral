@@ -1,3 +1,5 @@
 settings.php
 *.sql
 sites/*/private/*
+sites/*/files/*
+sites/*/settings*.php
