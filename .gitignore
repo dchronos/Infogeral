@@ -3,3 +3,4 @@ settings.php
 sites/*/private/*
 sites/*/files/*
 sites/*/settings*.php
+cache/*
