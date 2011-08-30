@@ -40,11 +40,11 @@ function ckeditor_help_delegate($path, $arg) {
         case 'admin/config/content/ckeditor/add':
             $output = '<p>' . t('CKEditor is highly configurable. The most commonly used features are listed below. You can also customize CKEditor to your needs by changing the configuration file: %ckeditor_module_config.',
                             array(
-                                '%ckeditor_module_config' => ckeditor_path(true) . '/ckeditor.config.js',
+                                '%ckeditor_module_config' => drupal_get_path('module', 'ckeditor') . '/ckeditor.config.js',
                     )) . '</p>';
             $output .= '<p>' . t('It is advised to not edit the configuration file that is distributed with CKEditor: %ckeditor_config_file (%ckeditor_config_path) because you may overwrite it accidentally when you update the editor.',
                             array(
-                                '%ckeditor_config_path' => ckeditor_path(true) . '/ckeditor/config.js',
+                                '%ckeditor_config_path' => ckeditor_path(true) . '/config.js',
                                 '%ckeditor_config_file' => 'config.js',
                     )) . '</p>';
             break;
@@ -147,16 +147,15 @@ function ckeditor_help_delegate($path, $arg) {
  */
 function ckeditor_filter_xss() {
     $GLOBALS['devel_shutdown'] = FALSE;
-    
+
     if (!isset($_POST['text']) || !is_string($_POST['text']) || !is_array($_POST['filters']) || !isset($_POST['input_format']) || !is_string($_POST['input_format'])) {
         exit;
     }
 
-    $text = $_POST['text'];
-    $text = strtr($text, array('<!--' => '__COMMENT__START__', '-->' => '__COMMENT__END__'));
+    $text = check_markup($_POST['text'], $_POST['input_format']);
     $filters = filter_get_filters();
-    $__filters = filter_list_format($_POST['input_format']);
-    
+    $format_filters = filter_list_format($_POST['input_format']);
+
     foreach ($_POST['filters'] as $name) {
         if ($name == "default") {
             preg_match_all("|</?([a-z][a-z0-9]*)(?:\b[^>]*)>|i", $text, $matches);
@@ -167,14 +166,12 @@ function ckeditor_filter_xss() {
             continue;
         }
 
-        if (!isset($filters[$name]) || !isset($filters[$name]['process callback'])) {
+        if (!isset($filters[$name]) || !isset($filters[$name]['process callback']) || (array_key_exists($name, $format_filters)) && $format_filters[$name]->status) {
             continue;
         }
-        
-        $text = $filters[$name]['process callback']($text, $__filters[$name]);
-    }
 
-    $text = strtr($text, array('__COMMENT__START__' => '<!--', '__COMMENT__END__' => '-->'));
+        $text = $filters[$name]['process callback']($text, $format_filters[$name]);
+    }
 
     echo $text;
 }

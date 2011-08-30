@@ -122,5 +122,31 @@ For licensing, see LICENSE.html or http://ckeditor.com/license
                 }
             }
         });
+        $(".cke_load_toolbar").click(function() {
+            var buttons = eval('Drupal.settings.'+$(this).attr("id"));
+            var text = "[\n";
+            for(i in buttons) {
+                text = text + "    [";
+                max = buttons[i].length - 1;
+                rows = buttons.length - 1;
+                for (j in buttons[i]) {
+                    if (j < max){
+                        text = text + "'" + buttons[i][j] + "',";
+                    } else {
+                        text = text + "'" + buttons[i][j] + "'";
+                    }
+                }
+                if (i < rows){
+                    text = text + "],\n";
+                } else {
+                    text = text + "]\n";
+                }
+            }
+
+            text = text + "]";
+            text = text.replace(/\['\/'\]/g,"'/'");
+            $("#edit-toolbar").attr('value',text);
+            return false;
+        });
     });
 })(jQuery);

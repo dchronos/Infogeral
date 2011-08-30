@@ -75,7 +75,7 @@ function ckeditor_install() {
     ['Bold','Italic','Underline','Strike','-','Subscript','Superscript'],
     ['NumberedList','BulletedList','-','Outdent','Indent','Blockquote'],
     ['JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiLtr','BidiRtl'],
-    ['Link','Unlink','Anchor']
+    ['Link','Unlink','Anchor', 'Linkit']
 ]
     ";
     $arr['expand'] = variable_get('ckeditor_toolbar_start_expanded', 1) ? "t" : "f";
@@ -118,7 +118,7 @@ function ckeditor_install() {
     ['Bold','Italic','Underline','Strike','-','Subscript','Superscript'],
     ['NumberedList','BulletedList','-','Outdent','Indent','Blockquote'],
     ['JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiLtr','BidiRtl'],
-    ['Link','Unlink','Anchor'],
+    ['Link','Unlink','Anchor', 'Linkit'],
     ['DrupalBreak'],
     '/',
     ['Format','Font','FontSize'],
@@ -454,7 +454,7 @@ function ckeditor_update_7001() {
 function ckeditor_update_7002() {
     $result = db_query("SELECT settings FROM {ckeditor_settings} WHERE name = :name", array(':name' => 'CKEditor Global Profile'))->fetchField();
     $settings = unserialize($result);
-    if ($settings['ckeditor_path'] == '%b/sites/all/libraries/ckeditor'){
+    if ($settings['ckeditor_path'] == '%b/sites/all/libraries/ckeditor') {
         $settings['ckeditor_path'] = '%l/ckeditor';
     }
     else {
@@ -471,4 +471,38 @@ function ckeditor_update_7002() {
                     ->condition('name', 'CKEditor Global Profile', '=')
                     ->execute();
 
+}
+
+/**
+ * Fix static paths to plugin files
+ */
+function ckeditor_update_7003() {
+    module_load_include('inc', 'ckeditor', 'includes/ckeditor.lib');
+    
+    $render = array();
+    $render["%base_path%"] = base_path();
+    $render["%editor_path%"] = ckeditor_path(FALSE) . '/';
+    $render["%ckeditor_path%"] = drupal_get_path('module', 'ckeditor');
+    $render["%plugin_dir%"] = $render["%ckeditor_path%"] . '/plugins/';
+    
+    $result = db_query("SELECT * FROM {ckeditor_settings} WHERE name <> :name", array(':name' => 'CKEditor Global Profile'))->fetchAllAssoc('name');
+    
+    foreach ((array) $result as $profile) {
+        $name = $profile->name;
+        $settings = unserialize($profile->settings);
+        
+        foreach ((array) $settings['loadPlugins'] as $i => $plugin) {
+            $settings['loadPlugins'][$i]['path'] = str_replace(array_values($render), array_keys($render), $plugin['path']);
+        }
+        
+        $settings = serialize($settings);
+        
+        $update = db_update('ckeditor_settings')
+                    ->fields(array(
+                        'settings' => $settings,
+                    ))
+                    ->condition('name', $name, '=')
+                    ->execute();
+    }
+       
 }

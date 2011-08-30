@@ -44,7 +44,7 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             return;
         }
 
-        if (run_filter && ($("#" + textarea_id).val().length > 0) && (($("#" + textarea_id).attr('class').indexOf("filterxss1") != -1 && typeof(Drupal.settings.ckeditor.autostart) != 'undefined' && typeof(Drupal.settings.ckeditor.autostart[textarea_id]) != 'undefined') || $("#" + textarea_id).attr('class').indexOf("filterxss2") != -1) && ckeditor_obj.input_formats[ckeditor_obj.elements[textarea_id]].filters.length > 0) {
+        if (run_filter && ($("#" + textarea_id).val().length > 0) && (($("#" + textarea_id).attr('class').indexOf("filterxss1") != -1 && typeof(Drupal.settings.ckeditor.autostart) != 'undefined' && typeof(Drupal.settings.ckeditor.autostart[textarea_id]) != 'undefined') || $("#" + textarea_id).attr('class').indexOf("filterxss2") != -1)) {
             $.ajax({
                 type: 'POST',
                 url: Drupal.settings.basePath + 'index.php?q=ckeditor/xss',
@@ -77,6 +77,10 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             {
                 var body = $(ev.editor.document.$.body);
 
+                ev.editor.dataProcessor.writer.setRules('p', {
+                    breakAfterOpen: false
+                });
+
                 if (typeof(ckeditor_obj.input_formats[ckeditor_obj.elements[textarea_id]].custom_formatting) != 'undefined') {
                     var dtd = CKEDITOR.dtd;
                     for ( var e in CKEDITOR.tools.extend( {}, dtd.$block, dtd.$listItem, dtd.$tableContent ) ) {
@@ -98,8 +102,19 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             focus : function(ev)
             {
                 Drupal.ckeditorInstance = ev.editor;
+                Drupal.ckeditorActiveId = ev.editor.name;
             }
         };
+
+        if (typeof Drupal.settings.ckeditor.scayt_language != 'undefined'){
+            textarea_settings['scayt_sLang'] = Drupal.settings.ckeditor.scayt_language;
+        }
+
+        if (typeof textarea_settings['js_conf'] != 'undefined'){
+            for (var add_conf in textarea_settings['js_conf']){
+                textarea_settings[add_conf] = eval(textarea_settings['js_conf'][add_conf]);
+            }
+        }
 
         textarea_settings.extraPlugins = '';
         if (typeof CKEDITOR.plugins != 'undefined'){

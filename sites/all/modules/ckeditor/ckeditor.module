@@ -297,6 +297,7 @@ function ckeditor_path($local = FALSE, $refresh = FALSE) {
 
     if ($refresh || (!$cke_path)) {
         $mod_path = drupal_get_path('module', 'ckeditor');
+        $lib_path = 'sites/all/libraries';
         $global_profile = ckeditor_profile_load('CKEditor Global Profile', $refresh);
 
         //default: path to ckeditor subdirectory in the ckeditor module directory (starting from the document root)
@@ -312,7 +313,7 @@ function ckeditor_path($local = FALSE, $refresh = FALSE) {
 
             if (isset($gs['ckeditor_path'])) {
                 $tmp_path = $gs['ckeditor_path'];
-                $tmp_path = strtr($tmp_path, array("%m" => $mod_path, "%l" => 'sites/all/libraries'));
+                $tmp_path = strtr($tmp_path, array("%b" => base_path(), "%m" => $mod_path, "%l" => $lib_path));
                 $tmp_path = str_replace('\\', '/', $tmp_path);
                 $tmp_path = str_replace('//', '/', $tmp_path);
                 $cke_path = $tmp_path;
@@ -348,4 +349,90 @@ function ckeditor_path($local = FALSE, $refresh = FALSE) {
     else {
         return $cke_path;
     }
+}
+
+/**
+ * Read CKEditor plugins path from Global profile
+ *
+ * @return
+ *   path to CKEditor plugins folder
+ */
+function ckeditor_plugins_path($local = FALSE, $refresh = FALSE) {
+    static $cke_plugins_path;
+    static $cke_plugins_local_path;
+
+    if ($refresh || (!$cke_plugins_path)) {
+        $mod_path = drupal_get_path('module', 'ckeditor');
+        $lib_path = 'sites/all/libraries';
+        $global_profile = ckeditor_profile_load('CKEditor Global Profile', $refresh);
+
+        //default: path to ckeditor subdirectory in the ckeditor module directory (starting from the document root)
+        //e.g. for http://example.com/drupal it will be /drupal/sites/all/modules/ckeditor/ckeditor
+        $cke_plugins_path = base_path() . $mod_path . '/plugins';
+
+        if ($global_profile) {
+            $gs = $global_profile->settings;
+
+            if (isset($gs['ckeditor_plugins_path'])) {
+                $tmp_path = $gs['ckeditor_plugins_path'];
+                $tmp_path = strtr($tmp_path, array("%b" => base_path(), "%m" => $mod_path, "%l" => $lib_path));
+                $tmp_path = str_replace('\\', '/', $tmp_path);
+                $tmp_path = str_replace('//', '/', $tmp_path);
+                $tmp_path = rtrim($tmp_path, ' \/');
+                if (substr($tmp_path, 0, 1) != '/') {
+                    $tmp_path = '/' . $tmp_path; //starts with '/'
+                }
+                $cke_plugins_path = $tmp_path;
+
+                if (empty($gs['ckeditor_plugins_local_path'])) {
+                    //fortunately wildcards are used, we can easily get the right server path
+                    if (FALSE !== strpos($gs['ckeditor_plugins_path'], "%m")) {
+                        $gs['ckeditor_plugins_local_path'] = strtr($gs['ckeditor_plugins_path'], array("%m" => $mod_path));
+                    }
+                    if (FALSE !== strpos($gs['ckeditor_plugins_path'], "%b")) {
+                        $gs['ckeditor_plugins_local_path'] = strtr($gs['ckeditor_plugins_path'], array("%b" => "."));
+                    }
+                    if (FALSE !== strpos($gs['ckeditor_plugins_path'], "%l")) {
+                        $gs['ckeditor_plugins_local_path'] = strtr($gs['ckeditor_plugins_path'], array("%l" => "sites/all/libraries"));
+                    }
+                }
+            }
+
+            //ckeditor_plugins_path is defined, but wildcards are not used, we need to try to find out where is
+            //the document root located and append ckeditor_plugins_path to it.
+            if (!empty($gs['ckeditor_plugins_local_path'])) {
+                $cke_plugins_local_path = $gs['ckeditor_plugins_local_path'];
+            } 
+            elseif (!empty($gs['ckeditor_plugins_path'])) {
+                module_load_include('inc', 'ckeditor', 'includes/ckeditor.lib');
+                $local_path = ckeditor_resolve_url($gs['ckeditor_plugins_path'] . "/");
+                if (FALSE !== $local_path) {
+                    $cke_plugins_local_path = $local_path;
+                }
+            }
+        }
+    }
+
+    if ($local) {
+        return $cke_plugins_local_path;
+    } 
+    else {
+        return $cke_plugins_path;
+    }
+}
+
+/**
+ * Implementation of hook_features_api()
+ *
+ * Allow exporting of CKEditor profiles by the Features module
+ */
+function ckeditor_features_api() {
+  return array(
+    'ckeditor_profile' => array(
+      'name' => t('CKEditor profiles'),
+      'default_hook' => 'ckeditor_profile_defaults',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'ckeditor') . '/includes/ckeditor.features.inc',
+    )
+  );
 }
