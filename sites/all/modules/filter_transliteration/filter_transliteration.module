@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * @file
+ * Provides a text format filter for transliteration.
+ *
+ * @see http://drupal.org/project/transliteration
+ */
+
+/**
+ * Implements hook_filter_info().
+ */
+function filter_transliteration_filter_info() {
+  return array(
+    'filter_transliteration' => array(
+      'title' => t('Transliteration'),
+      'description'=> t('Convert non-latin text to US-ASCII equivalents.'),
+      'default settings' => array('unknown' => '?'),
+      'process callback' => '_filter_transliteration_process',
+      'settings callback' => '_filter_transliteration_settings',
+      'tips callback' => 'filter_transliteration_tips',
+    ),
+  );
+}
+
+/**
+ * Implements hook_filter_FILTER_process().
+ * @see filter_transliteration_filter_info()
+ */
+function _filter_transliteration_process($text, $filter, $format, $langcode, $cache, $cache_id) {
+  return transliteration_get($text, $filter->settings['unknown'], $langcode);
+}
+
+/**
+ * Implements hook_filter_FILTER_settings().
+ * @see filter_transliteration_filter_info()
+ */
+function _filter_transliteration_settings($form, &$form_state, $filter, $format, $defaults, $filters) {
+  $filter->settings += $defaults;
+  return array(
+    'unknown' => array(
+      '#type' => 'textfield',
+      '#title' => t('Unknown'),
+      '#title_display' => 'invisible',
+      '#field_prefix' => t('Replace non-ASCII characters with '),
+      '#field_suffix' => t(' if there is no suitable ASCII equivalent.'),
+      '#size' => 2,
+      '#maxlength' => 5,
+      '#attributes' => array('style' => 'width: 1em'),
+      '#default_value' => $filter->settings['unknown'],
+    )
+  );
+}
+
+/**
+ * Implements hook_filter_FILTER_tips().
+ * @see filter_transliteration_filter_info()
+ */
+function filter_transliteration_tips($filter, $format, $long) {
+  return t('Non-latin text will be converted to US-ASCII equivalents.');
+}

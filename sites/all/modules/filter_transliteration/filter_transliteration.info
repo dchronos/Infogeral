@@ -1,0 +1,12 @@
+name = Filter Transliteration
+description = Provides a text format filter for converting non-latin text to US-ASCII.
+package = Input filters
+core = 7.x
+dependencies[] = transliteration
+
+; Information added by drupal.org packaging script on 2011-04-06
+version = "7.x-1.1"
+core = "7.x"
+project = "filter_transliteration"
+datestamp = "1302092215"
+
