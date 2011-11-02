@@ -43,19 +43,21 @@ function fb_process($output, $options = array()) {
 
   if ($_fb) {
     if (function_exists('fb_url_outbound_alter')) {
-      $base_before_rewrite = '';
       $rewrite_options = array(FB_SETTINGS_CB_SESSION => FALSE, FB_SETTINGS_CB_TYPE => FALSE);
-      $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
+      $base_rewrite = '';
+      fb_url_outbound_alter($base_rewrite, $rewrite_options, '');
+      $base = $base_path . $base_rewrite;  // short URL with rewrite applied.
     }
     else {
       // If no url_alter, use normal base_path.
       $base = $base_path;
     }
 
+    $protocol = fb_protocol(); // http or https
     if (isset($options['to_canvas']) && ($canvas = $options['to_canvas'])) {
       // Make relative links point to canvas pages.
       $patterns[] = "|<a([^>]*)href=\"{$base}|";
-      $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$canvas}/";
+      $replacements[] = "<a $1 href=\"$protocol://apps.facebook.com/{$canvas}/";
     }
     else {
       // Make relative links point to website.
@@ -89,7 +91,7 @@ function fb_process($output, $options = array()) {
       // Make absolute links point to canvas pages.
       $absolute_base = url('<front>', array('absolute' => TRUE));
       $patterns[] = "|<a([^>]*)href=\"{$absolute_base}|";
-      $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
+      $replacements[] = "<a $1 href=\"$protocol://apps.facebook.com/{$_fb_app->canvas}/";
     }
   }
   if (count($patterns)) {

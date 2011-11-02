@@ -71,7 +71,7 @@ function fb_devel_init() {
   if (user_access('access devel information')) {
     // Add our module's javascript.
     drupal_add_js(drupal_get_path('module', 'fb_devel') . '/fb_devel.js');
-    fb_js_settings('verbose', fb_verbose());
+    drupal_add_js(array('fb_devel' => array('verbose' => fb_verbose())), 'setting');
   }
 
   // fb_settings.inc sanity check.
@@ -316,6 +316,23 @@ function fb_devel_fb($op, $data, &$return) {
   }
 }
 
+
+/**
+ * Implements hook_footer().
+ */
+function fb_devel_footerXXX($is_front) {
+  $output = "<!-- fb_devel_footer() -->\n";
+  $output .= "<script type=\"text/javascript\">\n";
+  $output .= "<!--//--><![CDATA[//><!--\n";
+  $output .= "  jQuery(document).bind('fb_init', FB_Devel.initHandler);\n";
+  //$output .= "  FB_Devel.sanityCheck()\n";
+  $output .= "\n//--><!]]>\n";
+  $output .= "\n</script>\n";
+  return $output;
+}
+
+
+
 /**
  * Provides a page with useful debug info.
  *
@@ -339,12 +356,15 @@ function fb_devel_page() {
     // TODO: determine whether connect page or canvas.
 
     drupal_set_message(t("session name: " . session_name()));
-    drupal_set_message(t("cookie domain: " . fb_settings(FB_SETTINGS_COOKIE_DOMAIN)));
     drupal_set_message(t("session id: " . session_id()));
+    drupal_set_message(t("cookie domain: " . fb_settings(FB_SETTINGS_COOKIE_DOMAIN)));
+
     if (isset($_COOKIE['fbs_' . $_fb_app->apikey]))
       drupal_set_message(t("fbs_" . $_fb_app->apikey . ": " . $_COOKIE["fbs_" . $_fb_app->apikey]));
+
     drupal_set_message(t("<a href=\"!url\">processed link</a>, <a href=!url>unprocessed</a>", array('!url' => url('fb/devel'))));
     drupal_set_message(t("getUser() returns " . $_fb->getUser()));
+    drupal_set_message(t("getAccessToken() returns " . $_fb->getAccessToken()));
 
     drupal_set_message(t("base_url: " . $GLOBALS['base_url']));
     drupal_set_message(t("base_path: " . $GLOBALS['base_path']));
@@ -368,7 +388,6 @@ function fb_devel_page() {
   dpm($_COOKIE, 'cookie');
   dpm($_REQUEST, "Request");
   //dpm($_fb_app, "fb_app");
-  drupal_set_message(t("session_id returns " . session_id()));
   dpm($_SESSION, "session:");
 
   foreach ($items as $key => $val) {
@@ -457,8 +476,15 @@ function fb_devel_tab() {
 function fb_devel_fbu_page($fbu = NULL) {
   global $_fb, $_fb_app;
   if ($fbu) {
+    // Uses FQL
+    $info = fb_users_getInfo(array($fbu), $_fb);
+    $output = "<p>Debug FQL info about facebook id $fbu ({$info[0]['name']}):</p>\n";
+    $output .= "<img src=http://graph.facebook.com/$fbu/picture></img>";
+    $output .= "<pre>" . print_r($info[0], 1) . "</pre>";
+
+    // Use new graph api
     $info = $_fb->api($fbu, array('metadata' => 1));
-    $output = "<p>Debug info about facebook id $fbu ({$info[name]}):</p>\n";
+    $output .= "<p>Debug info about facebook id $fbu ({$info['name']}):</p>\n";
     $output .= "<img src=http://graph.facebook.com/$fbu/picture></img>";
     $output .= "<pre>" . print_r($info, 1) . "</pre>";
 
@@ -479,7 +505,7 @@ function fb_devel_fbu_page($fbu = NULL) {
       //dpm($friends, "$fbu/friends returned");
       $items = array();
       foreach ($friends['data'] as $data) {
-        $items[] = l($data['name'], "fb/devel/fbu/{$data[id]}");
+        $items[] = l($data['name'], "fb/devel/fbu/{$data['id']}");
       }
       if (count($items)) {
         $output .= "\n<p>Known friends:<ul><li>";
@@ -496,7 +522,7 @@ function fb_devel_fbu_page($fbu = NULL) {
 
       $items = array();
       foreach ($local_friends as $uid) {
-        $account = user_load(array('uid' => $uid));
+        $account = user_load($uid);
         $items[] = theme('username', $account);
       }
       if (count($items)) {
@@ -620,8 +646,7 @@ function fb_devel_info() {
   $info['arg(1) is'] = arg(1);
   $info['session_id'] = session_id();
   $info['session_name'] = session_name();
-  $info['fbsettings(FB_SETTINGS_COOKIE_DOMAIN)'] = fb_settings(FB_SETTINGS_COOKIE_DOMAIN);
-
+  $info['fb_settings()'] = fb_settings();
   $info['request'] = $_REQUEST;
   $info['user'] = $GLOBALS['user'];
   $info['fb_app'] = $_fb_app;
@@ -645,7 +670,7 @@ function fb_devel_info() {
     catch (FacebookApiException $e) {
       fb_log_exception($e, "failed to get app properties");
     }
-    $info["fb->getSession()"] = $_fb->getSession();
+   // $info["fb->getSession()"] = $_fb->getSession();
     $info["fb->getSignedRequest()"] = $_fb->getSignedRequest();
     if ($fbu) {
       try {
@@ -654,7 +679,11 @@ function fb_devel_info() {
                                            ));
       }
       catch (FacebookApiException $e) {
-        fb_log_exception($e, "failed to look up _fb->api($fbu)");
+        if (fb_verbose() == 'extreme') {
+          // After oauth upgrade, this exception is thrown always, when using app token.
+          // So only show error when fb_verbose is extreme.  Hopefully facebook will fix the issue.
+          fb_log_exception($e, "failed to look up _fb->api($fbu)."); // Dont show token, it can inlude app secret.  using token " . fb_get_token($_fb));
+        }
       }
     }
   }

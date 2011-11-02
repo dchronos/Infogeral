@@ -84,7 +84,7 @@ function microblog_user_view($account, $view_mode, $langcode) {
       '#title' => t('Microblog'),
       '#markup' => l(t('View recent microblog entries'), "microblog/$account->uid", 
         array('attributes' => array('title' => t("Read !username's latest microblog entries.", 
-        array('!username' => format_username($account->name)))))),
+        array('!username' => check_plain(format_username($account))))))),
       '#attributes' => array('class' => 'microblog'),
     );
   }
@@ -114,6 +114,7 @@ function microblog_form($node, &$form_state) {
     '#title' => check_plain($type->title_label),
     '#required' => TRUE,
     '#maxlength' => 255,
+	'#default_value' => check_plain($node->title),
   );
 
   return $form;
@@ -230,9 +231,9 @@ function microblog_node_view($node, $view_mode) {
   if ($node->type == 'microblog') {
     if (arg(0) != 'microblog' || arg(1) != $node->uid) {
       $links['blog_usernames_blog'] = array(
-        'title' => t("!username's Microblog", array('!username' => format_username($node->name))),
+        'title' => t("!username's Microblog", array('!username' => check_plain(format_username($node)))),
         'href' => "microblog/$node->uid",
-        'attributes' => array('title' => t("Read !username's latest microblog entries.", array('!username' => format_username($node->name)))),
+        'attributes' => array('title' => t("Read !username's latest microblog entries.", array('!username' => check_plain(format_username($node))))),
       );
       $node->content['links']['microblog'] = array(
         '#theme' => 'links__node__microblog',
@@ -456,7 +457,7 @@ function theme_microblog_people_list($variables) {
       $img = theme('user_picture', array('account' => $account));
     }
     else {
-      $img = '<img src="/themes/bluemarine/logo.png" width="40" height="40" hspace="2" vspace="2" alt="'. $account->name .'" title="'. $account->name .'" />';   
+      $img = '<img src="'. url("themes/bluemarine/logo.png") .'" width="40" height="40" hspace="2" vspace="2" alt="'. $account->name .'" title="'. $account->name .'" />';   
     }
     $content = l($img, 'microblog/' . $account->uid, array('html' => TRUE));
   } 

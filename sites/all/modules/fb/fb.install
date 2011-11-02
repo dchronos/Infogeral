@@ -61,27 +61,26 @@ function fb_requirements($phase) {
   $fb_lib_path = function_exists('libraries_get_path') ? libraries_get_path('facebook-php-sdk') : 'sites/all/libraries/facebook-php-sdk';
   $fb_platform = variable_get(FB_VAR_API_FILE, $fb_lib_path . '/src/facebook.php');
 
+  if (!class_exists('Facebook') && $fb_platform) {
+    // Attempt to load, if not loaded already.
+    include($fb_platform);
+  }
+
   if (class_exists('Facebook')) {
     $status['value'] = Facebook::VERSION;
-    if (Facebook::VERSION >= "3") {
-      $status['description'] = $t('Expected version 2.x.y of Facebook PHP SDK.');
+    if (Facebook::VERSION < "3" || Facebook::VERSION > "4") {
+      $status['description'] = $t('Expected version 3.x.y of Facebook PHP SDK.');
       $status['severity'] = REQUIREMENT_ERROR;
     }
     else {
-      $status['description'] = $t('Facebook PHP SDK loaded.');
+      $status['description'] = $fb_platform;
       $status['severity'] = REQUIREMENT_OK;
     }
   }
-  elseif (include($fb_platform)) { // include() better than file_exists().
-    $status['description'] = $t('Facebook SDK found at %path',
-                                array('%path' => $fb_platform));
-    $status['severity'] = REQUIREMENT_OK;
-    if ($phase == 'runtime') {
-      $status['value'] = $t('Found');
-    }
-  }
   else {
-    $status['description'] = $t('Facebook client API not found.  See modules/fb/README.txt');
+    $status['description'] = $t('Facebook client API not found at %path.  See modules/fb/README.txt', array(
+                                  '%path' => $fb_platform,
+                                ));
     $status['severity'] = REQUIREMENT_ERROR;
     if ($phase == 'runtime') {
       $status['value'] = $t('Not found');

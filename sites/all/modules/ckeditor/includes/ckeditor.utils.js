@@ -52,6 +52,7 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
                 data: {
                     text: $('#' + textarea_id).val(),
                     input_format: ckeditor_obj.elements[textarea_id],
+                    textformat_filters: ckeditor_obj.input_formats[ckeditor_obj.elements[textarea_id]].textformat_filters,
                     'filters[]': ckeditor_obj.input_formats[ckeditor_obj.elements[textarea_id]].filters
                 },
                 success: function(text){
@@ -191,12 +192,12 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             return true;
         }
         else {
-            alert(Drupal.t('Content can be only inserted into CKEditor in WYSIWYG mode.'));
+            alert(Drupal.t('Content can only be inserted into CKEditor in the WYSIWYG mode.'));
             return false;
         }
     };
 
-    /**
+/**
  * Ajax support
  */
     if (typeof(Drupal.Ajax) != 'undefined' && typeof(Drupal.Ajax.plugins) != 'undefined') {
@@ -216,7 +217,7 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
         }
     };
 
-    /**
+/**
  * Drupal behaviors
  */
     Drupal.behaviors.ckeditor = {
@@ -225,7 +226,7 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             if ((typeof(CKEDITOR) == 'undefined') || !CKEDITOR.env.isCompatible) {
                 return;
             }
-            $('.ckeditor_links').show();
+            
             // make sure the textarea behavior is run first, to get a correctly sized grippie
             if (Drupal.behaviors.textarea && Drupal.behaviors.textarea.attach) {
                 Drupal.behaviors.textarea.attach(context);
@@ -236,9 +237,15 @@ window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
                 if (CKEDITOR.instances && typeof(CKEDITOR.instances[ta_id]) != 'undefined'){
                     Drupal.ckeditorOff(ta_id);
                 }
+                
                 if ((typeof(Drupal.settings.ckeditor.autostart) != 'undefined') && (typeof(Drupal.settings.ckeditor.autostart[ta_id]) != 'undefined')) {
                     Drupal.ckeditorOn(ta_id);
                 }
+                
+                if (typeof(Drupal.settings.ckeditor.input_formats[Drupal.settings.ckeditor.elements[ta_id]]) != 'undefined') {
+                    $('.ckeditor_links').show();
+                }
+                
                 var sel_format = ta_id.substr(0, ta_id.lastIndexOf("-")) + "-format--2";
                 $('#'+sel_format).change(function(){
                     Drupal.settings.ckeditor.elements[ta_id] = $(this).val();

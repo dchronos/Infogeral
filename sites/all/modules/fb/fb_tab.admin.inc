@@ -21,6 +21,12 @@ function fb_tab_fb_admin($op, $data, &$return) {
                                          'absolute' => TRUE,
                                          'fb_canvas' => FALSE,
                                        ));;
+      if (variable_get(FB_VAR_SECURE_URLS, FB_SECURE_URLS_SOMETIMES) >= FB_SECURE_URLS_SOMETIMES) {
+        $return['secure_page_tab_url'] = str_replace('http://', 'https://', $return['profile_tab_url']) . '/'; // Must end with '/' ???
+      }
+      if (variable_get(FB_VAR_SECURE_URLS, FB_SECURE_URLS_SOMETIMES) <= FB_SECURE_URLS_SOMETIMES) {
+        $return['profile_tab_url'] = str_replace('https://', 'http://', $return['profile_tab_url']);
+      }
     }
     else {
       $return['profile_tab_url'] = '';
@@ -40,6 +46,7 @@ function fb_tab_fb_admin($op, $data, &$return) {
   elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Profile Tab Name')] = 'tab_default_name';
     $return[t('Profile Tab URL')] = 'profile_tab_url';
+    $return[t('Secure Page Tab URL')] = 'secure_page_tab_url';
     $return[t('Profile Tab Edit URL')] = 'edit_url';
     $return[t('Installable')] = 'installable';
   }

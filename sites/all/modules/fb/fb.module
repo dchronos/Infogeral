@@ -52,6 +52,12 @@ define('FB_VAR_USE_COOKIE', 'fb_use_cookie');
 define('FB_VAR_USE_SESSION', 'fb_use_session');
 define('FB_VAR_RELOAD_APPEND_HASH', 'fb_reload_append_hash');
 define('FB_VAR_CURL_NOVERIFY', 'fb_curl_noverify');
+define('FB_VAR_SECURE_URLS', 'fb_secure_urls');
+
+// Possible choices for secure urls.
+define('FB_SECURE_URLS_ALWAYS', 1);
+define('FB_SECURE_URLS_SOMETIMES', 0);
+define('FB_SECURE_URLS_NEVER', -1);
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
@@ -166,6 +172,7 @@ function fb_init() {
     'xfbml' => FALSE,
     'status' => FALSE,
     'cookie' => variable_get(FB_VAR_USE_COOKIE, TRUE),
+    'oauth' => TRUE,
   );
 
   if ($_fb_app) {
@@ -183,43 +190,11 @@ function fb_init() {
 
     if ($_fb) {
 
-      // Look for session info from several sources.
-      if ($session = $_fb->getSession()) {
-        // Learned session from cookie or signed request.
-        // Below, we store in our $_SESSION, just in case third-party cookies are not enabled.
-      }
-      elseif (isset($_REQUEST['fb_js_session'])) {
-        // Ajax callback via fb.js.
-        $_fb->setSession(json_decode($_REQUEST['fb_js_session'], TRUE));
-        $session = $_fb->getSession();
-      }
-      elseif (isset($_SESSION['fb'][$_fb_app->id]['session']) && arg(0) != 'logout') {
-        // Use the session previously stored.
-        $_fb->setSession($_SESSION['fb'][$_fb_app->id]['session']);
-      }
+      // @TODO: test this code with third party cookies disabled.
 
-      // Store session for future use.  We'll need it if third-party cookies
-      // disabled, or we are not using facebook's cookie.
-      if (isset($session) && variable_get(FB_VAR_USE_SESSION, TRUE)) {
-        $_SESSION['fb'][$_fb_app->id]['session'] = $session;
-      }
-
-      // Make javascript work even when third-party cookies disabled.
-      $fb_init_settings['session'] = $_fb->getSession();
-
-      // Sometimes when canvas page is open in one tab, and user logs out of
+      // @TODO: test if this is still true: Sometimes when canvas page is open in one tab, and user logs out of
       // facebook in another, the canvas page has bogus session info when
       // refreshed.  Here we attempt to detect and cleanup.
-      if (isset($session) && ($request = $_fb->getSignedRequest())) {
-        if (!isset($request['user_id']) ||
-            $request['user_id'] != $session['uid']) {
-          _fb_logout();
-          $_fb->setSession(NULL);
-          unset($session);
-          unset($_SESSION['fb'][$_fb_app->id]);
-          unset($fb_init_settings['session']);
-        }
-      }
 
       // Give other modules a chance to initialize.
       fb_invoke(FB_OP_INITIALIZE, array(
@@ -228,13 +203,13 @@ function fb_init() {
                 ));
 
       // See if the facebook user id is known
-      if ($fbs = $_fb->getSession()) {
+      if ($fbu = $_fb->getUser()) {
         fb_invoke(FB_OP_APP_IS_AUTHORIZED, array(
                     'fb_app' => $_fb_app,
                     'fb' => $_fb,
-                    'fbu' => $_fb->getUser(),
+                    'fbu' => $fbu,
                   ));
-        fb_js_settings('fbu', $_fb->getUser());
+        fb_js_settings('fbu', $fbu);
       }
       else {
         // Add perms to settings, for calling FB.login().
@@ -387,8 +362,8 @@ function fb_api_init($fb_app) {
       return NULL;
     }
 
-    if (Facebook::VERSION >= "3") {
-      $message = 'This version of modules/fb is compatible with Facebook PHP SDK version 2.x, but %version was found.  Either upgrade modules/fb or downgrade %fb_platform.';
+    if (Facebook::VERSION < "3") {
+      $message = 'This version of modules/fb is compatible with Facebook PHP SDK version 3.x.y, but %version was found (%fb_platform).';
       $args = array('%fb_platform' => $fb_platform, '%version' => Facebook::VERSION);
       if (user_access('access administration pages')) {
         drupal_set_message(t($message, $args));
@@ -505,8 +480,7 @@ function fb_get_token($fb = NULL, $fbu = NULL) {
     $cache_key .= '_' . $fbu;
     // Get the user access token.
     if ($fbu == 'me' || $fbu == fb_facebook_user($fb)) {
-      $session = $fb->getSession();
-      $cache[$cache_key] = $session['access_token'];
+      $cache[$cache_key] = $fb->getAccessToken();
     }
     else {
       $session_data = fb_invoke(FB_OP_GET_USER_SESSION, array(
@@ -639,24 +613,27 @@ function fb_page_alter(&$page) {
 
   $output .= "<script type=\"text/javascript\">\n";
   $output .= "<!--//--><![CDATA[//><!--\n";
-  $output .= "jQuery.extend(Drupal.settings, " . json_encode(array('fb' => $settings)) . ");\n";
+  $output .= "if (typeof(FB) == 'undefined') {\n";
+  $output .= "  jQuery.extend(Drupal.settings, " . json_encode(array('fb' => fb_js_settings()))
+ . ");\n";
   //$output .= "debugger;\n"; // debug
   $js_array = fb_invoke(FB_OP_JS, array('fb' => $GLOBALS['_fb'], 'fb_app' => $GLOBALS['_fb_app']), array());
   if (count($js_array)) {
     // The function we define in the footer will be called after FB is initialized.
-    $output .= "FB_JS.initHandler = function() {\n";
+    $output .= "  FB_JS.initHandler = function() {\n";
     //$output .= "debugger;\n";
-    $output .= implode("\n", $js_array);
-    $output .= "};\n";
-    $output .= "jQuery(document).bind('fb_init', FB_JS.initHandler);\n";
+    $output .= implode("\n  ", $js_array);
+    $output .= "  };\n";
+    $output .= "  jQuery(document).bind('fb_init', FB_JS.initHandler);\n";
   }
 
     // Load the JS SDK asynchronously.
   // http://developers.facebook.com/docs/reference/javascript/
-  $output .= "var e = document.createElement('script');\n";
-  $output .= "e.async = true;\n";
-  $output .= "e.src = Drupal.settings.fb.js_sdk_url;\n";
-  $output .= "document.getElementById('fb-root').appendChild(e);\n";
+  $output .= "  var e = document.createElement('script');\n";
+  $output .= "  e.async = true;\n";
+  $output .= "  e.src = Drupal.settings.fb.js_sdk_url;\n";
+  $output .= "  document.getElementById('fb-root').appendChild(e);\n";
+  $output .= "}\n\n";
 
   $output .= "\n//--><!]]>\n";
   $output .= "\n</script>\n";
@@ -740,9 +717,10 @@ function fb_api_check_session($fb) {
 
     unset($_SESSION['fb'][$fb->getAppId()]);
     // Unsetting the javasript fbu can be helpful when third-party cookies disabled.
-    fb_js_settings('fbu', 0);
+    //fb_js_settings('fbu', 0); @TODO still needed? helpful?
 
     // Might as well try to clean up the mess.
+    // @TODO: Are facebook cookies renamed (fbsr_...)??? Is this even needed anymore???
     if (isset($_COOKIE['fbs_' . $fb->getAppId()])) {
       setcookie('fbs_' . $fb->getAppId(), '', REQUEST_TIME - 42000, '/');
     }
@@ -761,9 +739,10 @@ function _fb_logout() {
   drupal_session_initialize();
 
   // Unsetting the javasript fbu can be helpful when third-party cookies disabled.
-  fb_js_settings('fbu', 0);
+  //fb_js_settings('fbu', 0); @TODO still needed?? helpful???
 
   // Clean up facebook cookies.
+  // @TODO: Are facebook cookies renamed (fbsr_...)??? Is this even needed anymore???
   if (isset($GLOBALS['_fb_app'])) {
     if (isset($_COOKIE['fbs_' . $GLOBALS['_fb_app']->apikey])) { // still needed?
       setcookie('fbs_' . $GLOBALS['_fb_app']->apikey, '', time() - 42000, '/');
@@ -1016,6 +995,7 @@ function fb_get_friends($fbu, $fb_app = NULL) {
         $items = fb_call_method($fb, 'friends.get', array(
                                   'uid' => $fbu,
                                 ));
+        $cache[$fbu] = $items;
       }
       catch (Exception $e) {
         fb_log_exception($e, t('Failed call to friends.get'), $fb);
@@ -1031,25 +1011,28 @@ function fb_get_friends($fbu, $fb_app = NULL) {
                                    'query' => $query,
                                  ));
         //dpm($result, "FQL " . $query); // debug
+        if (is_array($result))
+          foreach ($result as $data) {
+            $items[] = $data['uid2'];
+          }
+
+        // Facebook's API has the annoying habit of returning an item even if user
+        // has no friends.  We need to clean that up.
+        if (!$items[0])
+          unset($items[0]);
+
+        $cache[$fbu] = $items;
       }
       catch (Exception $e) {
         fb_log_exception($e, t('Failed call to fql.query: !query', array('!query' => $query)), $fb);
       }
 
-      if (is_array($result))
-        foreach ($result as $data) {
-          $items[] = $data['uid2'];
-        }
     }
-    // Facebook's API has the annoying habit of returning an item even if user
-    // has no friends. We need to clean that up.
-    if (!$items[0])
-      unset($items[0]);
-
-    $cache[$fbu] = $items;
   }
 
-  return $cache[$fbu];
+  if (isset($cache[$fbu])) {
+    return $cache[$fbu];
+  }
 }
 
 // Return array of facebook gids

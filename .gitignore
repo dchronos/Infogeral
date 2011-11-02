@@ -1,6 +1,6 @@
-settings.php
-*.sql
-sites/*/private/*
-sites/*/files/*
+# Ignore configuration files that may contain sensitive information.
 sites/*/settings*.php
-cache/*
+
+# Ignore paths that contain user-generated content.
+sites/*/files
+sites/*/private

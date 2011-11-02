@@ -55,10 +55,11 @@ FB_Connect.logoutHandler = function(event) {
     });
     // Facebook's invalid cookies persist if third-party cookies disabled.
     // Let's try to clean up the mess.
+    // @TODO: is this still needed with newer oauth SDK???
     FB_JS.deleteCookie('fbs_' + FB._apiKey, '/', ''); // app id
     FB_JS.deleteCookie('fbs_' + Drupal.settings.fb.apikey, '/', ''); // apikey
   }
-  if (FB.getSession()) {
+  if (FB.getUser()) { // @TODO: still needed with newer oauth SDK???
     // Facebook needs more time to log us out. (http://drupal.org/node/1164048)
     Drupal.settings.fb.reload_url = Drupal.settings.fb_connect.front_url;
     return false;

@@ -123,11 +123,16 @@ function fb_user_app_user_delete($account) {
 }
 
 /**
- * Keep track of when the user has visited the app, and whether they've
- * authorized the app or not.
+ * Keep track of when the user has visited the app.
  *
- * Historically this supported infinite sessions.  I believe if this data is
- * no longer necessary for the offline access extended permission.
+ * Historically we could learn a user's ID even if they hadn't authorized
+ * ("added") the app.  No longer the case, so all entries in fb_user_app
+ * should be for authorized users.
+ *
+ * A "signed request" should be fully-formed (have an oauth_token) on canvas
+ * pages, and on post authorize events (for as long as facebook continues to
+ * support them).  So this tracking will work best for canvas page apps and
+ * less reliably for connect.
  */
 function fb_user_app_track($fb, $fb_app) {
   // Coming from a user adding the app or a page adding the app?
@@ -139,28 +144,38 @@ function fb_user_app_track($fb, $fb_app) {
     $fbu = $_REQUEST['fb_sig_page_id'];
   }
 
+  $sr = $fb->getSignedRequest();
+  watchdog('fb_user_app', __FUNCTION__ . " signed request is <pre>" . print_r($sr,1) . "</pre>"); // debug
 
-  // test if we are tracking only those apps that have been granted offline
-  // access.
-  $fb_session = $fb->getSession();
+  if (isset($sr['oauth_token'])) {
+    $access_token = $sr['oauth_token'];
+    $expires = $sr['expires'];
+    $fbu = $sr['user_id'];
+  }
+  else {
+    // @TODO: with new SDK, is there any useful tracking info?
+    return;
+  }
 
   // when 'expires' == 0 app has been granted offline access
   if ($fb_user_type == 'user' &&
-      $fb_session["expires"] <> 0 &&
-      variable_get(FB_USER_APP_VAR_USERS_THAT_GRANT_OFFLINE, FALSE))
+      $expires <> 0 &&
+      variable_get(FB_USER_APP_VAR_USERS_THAT_GRANT_OFFLINE, FALSE)) {
+    // Note, with new SDK, facebook provides 'expires' date even when user HAS GRANTED offline_access!
+    // @TODO: find some way to tell whether an access token will actually expire!
     return;
+  }
 
   // Track this event only if allowed to and only for users, not pages
   if ((variable_get(FB_USER_APP_VAR_TRACK_USERS, TRUE) && $fb_user_type = "user") ||
       (variable_get(FB_USER_APP_VAR_TRACK_PAGES, TRUE) && $fb_user_type = "page")) {
 
-    $access_token = isset($fb_session['access_token']) ? $fb_session['access_token'] : '';
     $result1 = db_query("UPDATE {fb_user_app} SET time_access=:time, session_key=:token, session_key_expires=:expires, user_type=:type WHERE apikey=:apikey AND fbu=:fbu", array(
                           ':time' => REQUEST_TIME,
                           ':token' => $access_token,
-                          ':expires' => $fb_session['expires'],
+                          ':expires' => $expires,
                           ':type' => $fb_user_type,
-                          ':apikey' => $fb_app->apikey,
+                          ':apikey' => $fb_app->id,
                           ':fbu' => fb_facebook_user($fb),
                         ));
 
@@ -168,7 +183,7 @@ function fb_user_app_track($fb, $fb_app) {
       // The row for this user was never inserted, or it was deleted, or the times were the same.
       $fbu = fb_facebook_user($fb);
       if ($fbu) {
-        //First make sure it was not just the same time
+        // First make sure it was not just the same time
         $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey=:apikey AND fbu=:fbu", array(
                              ':apikey' => $fb_app->apikey,
                              ':fbu' => $fbu,
@@ -184,7 +199,7 @@ function fb_user_app_track($fb, $fb_app) {
                                ':added' => $data['is_app_user'],
                                ':user_type' => $fb_user_type,
                                ':session_key' => $access_token,
-                               ':session_key_expires' => $fb_session['expires'],
+                               ':session_key_expires' => $expires,
                                ':time_access' => REQUEST_TIME,
                                ':proxied_email' => $data['email'] ? $data['email'] : ($data['proxied_email'] ? $data['proxied_email'] : ''), // test accounts will not have
                                ':time_cron' => 0,
@@ -212,7 +227,7 @@ function fb_user_app_get_proxied_email($fbu, $fb_app) {
     $mail = $data->proxied_email;
   }
 
-  if (!$mail) {
+  if (!isset($mail) || !$mail) {
     // Ask facebook for info.
     $fb = fb_api_init($fb_app);
     $info = fb_users_getInfo(array($fbu), $fb);

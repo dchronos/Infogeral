@@ -139,6 +139,15 @@ The email message text goes through three transformations before sending:
         your message will work as intended.
 
 ### Troubleshooting
+ 
+*   Check the [online documentation](http://drupal.org/node/1124376),
+    especially the [screenshots](http://drupal.org/node/1124934).
+
+*   There is a special documentation page for
+    [Using HTML Mail together with SMTP Authentication Support](http://drupal.org/node/1200142).
+
+*   [Simplenews](http://drupal.org/project/simplenews) users attempting advanced
+    theming should read [this page](http://drupal.org/node/1260178).
 
 *   Double-check the [Mail System](http://drupal.org/project/mailsystem)
     module settings and and make sure you selected
@@ -185,6 +194,8 @@ The email message text goes through three transformations before sending:
 :   http://drupal.org/project/transliteration
 
 ### [Documentation](http://drupal.org/project/documentation)
+ 
+**[HTML Mail](http://drupal.org/node/1124376)
 
 **[filter.module](http://api.drupal.org/api/drupal/modules--filter--filter.module/6)**
 :   [api.drupal.org/api/drupal/modules--filter--filter.module](http://api.drupal.org/api/drupal/modules--filter--filter.module/7)

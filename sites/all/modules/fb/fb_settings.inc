@@ -113,9 +113,12 @@ function _fb_settings_honor_signed_request($sr) {
 
   if (isset($sr['oauth_token'])) {
     fb_settings(FB_SETTINGS_TOKEN, $sr['oauth_token']);
-    $tokens = explode('|', $sr['oauth_token']);
-    if ($app_id = $tokens[0]) {
-      fb_settings(FB_SETTINGS_ID, $app_id);
+    if (!fb_settings(FB_SETTINGS_ID)) {
+      // Prefer app id learned from url rewriting over that learned from signed request (because sr may be encrypted).
+      $tokens = explode('|', $sr['oauth_token']);
+      if ($app_id = $tokens[0]) {
+        fb_settings(FB_SETTINGS_ID, $app_id);
+      }
     }
   }
 }
@@ -204,31 +207,6 @@ elseif (isset($_REQUEST['signed_request']) &&
   // Once upon a time, signed_request was only passed on canvas pages.  No longer true.
   // @TODO - somehow detect whether a signed request indicates canvas page or not.
   //fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
-}
-elseif (isset($_REQUEST['session'])) {
-  // New SDK's use session param for canvas pages.
-  // Deprecated!  'session' has been replaced with 'signed_request'.  This clause can go away.
-  $session = json_decode($_REQUEST['session'], TRUE);
-  fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
-  fb_settings(FB_SETTINGS_FBU, $session['uid']);
-  fb_settings(FB_SETTINGS_TOKEN, $session['access_token']);
-  // Which app?
-  $access_tokens = explode('|', $session['access_token']);
-  if ($app_id = $access_tokens[0]) {
-    fb_settings(FB_SETTINGS_ID, $app_id);
-  }
-}
-elseif (isset($_REQUEST['fb_js_session'])) {
-  // Ajax callback via fb.js.
-  $session = json_decode($_REQUEST['fb_js_session'], TRUE);
-  fb_settings(FB_SETTINGS_TYPE, isset($_REQUEST['fb_js_page_type']) ? $_REQUEST['fb_js_page_type'] : FB_SETTINGS_TYPE_CONNECT);
-  fb_settings(FB_SETTINGS_FBU, $session['uid']);
-  fb_settings(FB_SETTINGS_TOKEN, $session['access_token']);
-  // Which app?
-  $access_tokens = explode('|', $session['access_token']);
-  if ($app_id = $access_tokens[0]) {
-    fb_settings(FB_SETTINGS_ID, $app_id);
-  }
 }
 else {
   // We're not in a canvas page.

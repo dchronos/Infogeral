@@ -284,7 +284,7 @@ function fb_app_token_values($type = 'all', $object = NULL) {
   if ($type == 'fb_app' && $object) {
     $fb_app = $object;
     $values['fb-app-label'] = $fb_app->label;
-    $values['fb-app-url'] = 'http://apps.facebook.com/' . $fb_app->canvas;
+    $values['fb-app-url'] = fb_protocol() . '://apps.facebook.com/'. $fb_app->canvas;
   }
   return $values;
 }

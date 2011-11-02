@@ -31,6 +31,7 @@ function fb_admin_page() {
       t('Local Operations'),
       t('Remote Settings'),
     );
+    $protocol = fb_protocol();
 
     foreach ($apps as $fb_app) {
       // Get properties from facebook.
@@ -41,7 +42,7 @@ function fb_admin_page() {
       $row[] = $fb_app->label . ($fb_app->status ? '' : ' ' . t('(<em>not enabled</em>)'));
 
       // About.
-      $row[] = l(isset($fb_app->application_name) ? $fb_app->application_name : $fb_app->label, 'http://www.facebook.com/apps/application.php?id=' . $fb_app->id);
+      $row[] = l(isset($fb_app->application_name) ? $fb_app->application_name : $fb_app->label, $protocol . '://www.facebook.com/apps/application.php?id=' . $fb_app->id);
 
       // Canvas Page.
       if (isset($fb_app->canvas_name) &&
@@ -49,7 +50,7 @@ function fb_admin_page() {
         drupal_set_message(t('Canvas page for %label is out of sync!  Facebook believes it is %fbcanvas, while our database believes %canvas.  Edit and save the application to remedy this.', array('%label' => $fb_app->label, '%fbcanvas' => $fb_app->canvas_name, '%canvas' => $fb_app->canvas)), 'error');
       }
       if ($fb_app->canvas) {
-        $row[] = l($fb_app->canvas, 'http://apps.facebook.com/' . $fb_app->canvas);
+        $row[] = l($fb_app->canvas, $protocol . '://apps.facebook.com/' . $fb_app->canvas);
       }
       else {
         $row[] = t('n/a');
@@ -73,7 +74,7 @@ function fb_admin_page() {
       $row[] = theme('links', array('links' => $links));
 
       // Remote Settings
-      $row[] = l($fb_app->id, 'http://www.facebook.com/developers/editapp.php?app_id=' . $fb_app->id);
+      $row[] = l($fb_app->id, 'https://www.facebook.com/developers/editapp.php?app_id=' . $fb_app->id);
 
       $rows[] = $row;
     }
@@ -230,14 +231,14 @@ function fb_admin_set_properties_form($form, &$form_state, $fb_app) {
   // @TODO - beautify display of properties.
   $form['props'] = array(
     '#type' => 'markup',
-    '#value' => print_r($props, 1),
+    '#markup' => print_r($props, 1),
     '#prefix' => '<pre>',
     '#suffix' => '</pre>',
   );
 
   $form['desc2'] = array(
     '#type' => 'markup',
-    '#value' => t('Syncing will also update local settings with values learned from facebook (i.e. if you have changed your canvas page).'),
+    '#markup' => t('Syncing will also update local settings with values learned from facebook (i.e. if you have changed your canvas page).'),
     '#prefix' => '<p>',
     '#suffix' => '</p>',
   );
@@ -301,6 +302,24 @@ function fb_admin_set_properties_form_submit($form, &$form_state) {
  */
 function fb_admin_settings() {
   $form = array();
+
+  // @TODO would be nice to automatically test whether HTTPS is supported.
+  $form['fb_admin_secure'] = array(
+    '#title' => t('Secure URLs'),
+    '#type' => 'fieldset',
+    '#description' => t('Canvas Pages and Page Tabs require a server that supports SSL encrypted HTTPS.  Without HTTPS, those features will only work in "sandbox mode."'),
+  );
+  $form['fb_admin_secure'][FB_VAR_SECURE_URLS] = array(
+    '#type' => 'radios',
+    '#title' => t('Use Secure URLs'),
+    '#default_value' => variable_get(FB_VAR_SECURE_URLS, FB_SECURE_URLS_SOMETIMES),
+    '#description' => t('This setting affects your applications\' connect_url, callback_url, secure_callback_url, profile_tab_url, and secure_page_tab_url properties.'),
+    '#options' => array(
+      FB_SECURE_URLS_NEVER => t('Never use HTTPS. (I.e. this server does not support it.)'),
+      FB_SECURE_URLS_SOMETIMES => t('Use HTTPS only when Facebook expects a secure URL. (Recommended.)'),
+      FB_SECURE_URLS_ALWAYS => t('Always use HTTPS for both secure urls and also other url callbacks.'),
+    ),
+  );
 
   $form['fb_admin_session'] = array(
     '#title' => t('Sessions'),

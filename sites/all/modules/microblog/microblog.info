@@ -6,9 +6,9 @@ files[] = microblog.install
 files[] = microblog.module
 files[] = microblog.pages.inc
 ;configure = admin/config/microblog
-; Information added by drupal.org packaging script on 2011-03-09
-version = "7.x-1.0"
+; Information added by drupal.org packaging script on 2011-10-09
+version = "7.x-1.1"
 core = "7.x"
 project = "microblog"
-datestamp = "1299679269"
+datestamp = "1318195908"
 

@@ -10,8 +10,13 @@
  */
 function fb_connect_fb_admin($op, $data, &$return) {
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
-    // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
     $return['connect_url'] = fb_connect_get_connect_url($data['fb_app']);
+    if (variable_get(FB_VAR_SECURE_URLS, FB_SECURE_URLS_SOMETIMES) == FB_SECURE_URLS_ALWAYS) {
+      $return['connect_url'] = str_replace('http://', 'https://', $return['connect_url']);
+    }
+    else {
+      $return['connect_url'] = str_replace('https://', 'http://', $return['connect_url']);
+    }
   }
   elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Connect URL')] = 'connect_url';

@@ -15,9 +15,18 @@ FB_Devel.sanityCheck = function() {
     // before fb.js has a chance to initilize it!  To fix: use browser
     // to view page source, find all <script> tags that include all.js
     // and get rid of them.
+    // NOTE: this seems to get triggered sometimes, even when set up correctly.  Race condition?
     debugger; // not verbose.
-    if (Drupal.settings.fb.verbose) {
-      alert("fb_devel.js: Facebook JS SDK initialized badly."); // verbose
+    if (Drupal.settings.fb_devel.verbose) {
+      alert("fb_devel.js: Facebook JS SDK initialized witout app id!"); // verbose
+    }
+  }
+
+  var root = jQuery('#fb-root');
+  if (root.length != 1) {
+    debugger; // not verbose.
+    if (Drupal.settings.fb_devel.verbose) {
+      alert("fb_devel.js: no <div id=fb-root> found!"); // verbose
     }
   }
 };
