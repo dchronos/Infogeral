@@ -1,0 +1,27 @@
+From 9515a592c1fb2238c31f846772938e45b6ab5d7e Mon Sep 17 00:00:00 2001
+From: Adam J. DiCarlo <adam.dicarlo@gmail.com>
+Date: Thu, 27 Oct 2011 12:43:10 -0700
+Subject: [PATCH] Issue #1129642 follow-up by adamdicarlo: Fix PHP notices in theme_style_image() when width or height are not given.
+
+---
+ modules/image/image.module |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/modules/image/image.module b/modules/image/image.module
+index 066bd34..eba24b2 100644
+--- a/modules/image/image.module
++++ b/modules/image/image.module
+@@ -1184,8 +1184,8 @@ function image_effect_apply($image, $effect) {
+ function theme_image_style($variables) {
+   // Determine the dimensions of the styled image.
+   $dimensions = array(
+-    'width' => $variables['width'],
+-    'height' => $variables['height'],
++    'width' => isset($variables['width']) ? $variables['width'] : NULL,
++    'height' => isset($variables['height']) ? $variables['height'] : NULL,
+   );
+ 
+   image_style_transform_dimensions($variables['style_name'], $dimensions);
+-- 
+1.7.4.1
+
